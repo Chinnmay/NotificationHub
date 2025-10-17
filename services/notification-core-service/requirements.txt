@@ -1,0 +1,19 @@
+# Notification Core Service Requirements
+
+# Kafka
+aiokafka==0.12.0
+
+# Async support
+asyncio
+
+# Logging (built-in)
+
+# JSON handling (built-in)
+
+# Environment variables (built-in)
+
+# Development dependencies (optional)
+# pytest==7.4.0
+# pytest-asyncio==0.21.1
+# black==23.7.0
+# flake8==6.0.0

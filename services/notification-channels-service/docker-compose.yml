@@ -1,0 +1,56 @@
+services:
+  email-consumer:
+    build: .
+    container_name: notification-email-consumer
+    command: ["python", "consumers/email_consumer.py"]
+    network_mode: host
+    env_file:
+      - config.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  sms-consumer:
+    build: .
+    container_name: notification-sms-consumer
+    command: ["python", "consumers/sms_consumer.py"]
+    network_mode: host
+    env_file:
+      - config.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  webhook-consumer:
+    build: .
+    container_name: notification-webhook-consumer
+    command: ["python", "consumers/webhook_consumer.py"]
+    network_mode: host
+    env_file:
+      - config.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  slack-consumer:
+    build: .
+    container_name: notification-slack-consumer
+    command: ["python", "consumers/slack_consumer.py"]
+    network_mode: host
+    env_file:
+      - config.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "python", "-c", "import sys; sys.exit(0)"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
