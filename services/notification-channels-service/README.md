@@ -1,73 +1,139 @@
 # Notification Channels Service
 
-A multi-consumer service that processes notifications from Kafka and sends them through various channels (email, SMS, webhook, Slack). Each channel runs as a separate consumer group for independent scaling and processing.
+A multi-consumer service that processes notifications from Kafka and delivers them through various channels. Each channel runs as an independent consumer for optimal performance and scalability.
+
+## 🎯 Purpose
+
+This service handles the final step in the notification pipeline:
+- Consumes notifications from channel-specific Kafka topics
+- Processes notifications for each channel type
+- Delivers notifications through appropriate delivery mechanisms
+- Provides independent scaling for each channel
 
 ## 🏗️ Architecture
 
 ```
-notification-channels-service/
-├── consumers/               # Notification channel consumers
-│   ├── __init__.py         # Consumers package exports
-│   ├── email_consumer.py   # Email notification consumer
-│   ├── sms_consumer.py     # SMS notification consumer  
-│   ├── webhook_consumer.py # Webhook notification consumer
-│   └── slack_consumer.py   # Slack notification consumer
-├── common/                  # Shared utilities
-│   ├── __init__.py         # Common package exports
-│   ├── kafka_utils.py      # Simple Kafka utilities
-│   └── config.py           # Simple configuration
-├── requirements.txt         # Python dependencies
-├── config.env              # Environment configuration
-├── Dockerfile              # Container image
-├── docker-compose.yml      # Multi-container setup
-└── README.md               # This file
+Core Service ──▶ Kafka Topics ──▶ Channel Consumers ──▶ Notification Delivery
+                    │                    │                      │
+              notifications.email    Email Consumer        Email Service
+              notifications.sms      SMS Consumer          SMS Provider  
+              notifications.webhook  Webhook Consumer      HTTP Endpoints
+              notifications.slack    Slack Consumer        Slack API
 ```
 
-## 🚀 Features
+## 📁 Service Structure
 
-- **Multi-Channel Support**: Email, SMS, Webhook, Slack
-- **Independent Consumers**: Each channel runs as separate consumer group
-- **Simple & Clean**: Minimal, focused codebase (~430 lines total)
-- **Docker Ready**: Multi-container deployment
-- **Graceful Shutdown**: Proper signal handling
-- **Easy Configuration**: Simple environment-based configuration
+```
+notification-channels-service/
+├── consumers/                   # Channel-specific consumers
+│   ├── email_consumer.py       # Email notification processing
+│   ├── sms_consumer.py         # SMS notification processing
+│   ├── webhook_consumer.py     # Webhook notification processing
+│   └── slack_consumer.py       # Slack notification processing
+├── common/                     # Shared utilities
+│   ├── config.py              # Configuration management
+│   ├── kafka_utils.py         # Kafka utility functions
+│   └── __init__.py            # Package exports
+├── config.env                 # Environment configuration
+├── docker-compose.yml         # Multi-container deployment
+├── Dockerfile                 # Container image
+└── requirements.txt           # Python dependencies
+```
 
 ## 📋 Supported Channels
 
 ### 📧 Email Consumer
 - **Topic**: `notifications.email`
 - **Consumer Group**: `notification-email`
-- **Features**: HTML email generation, subject/body templates
+- **Processing**: HTML email generation, subject templates
+- **Output**: Console logging (demo implementation)
 
-### 📱 SMS Consumer  
+### 📱 SMS Consumer
 - **Topic**: `notifications.sms`
 - **Consumer Group**: `notification-sms`
-- **Features**: SMS message templates, phone number lookup
+- **Processing**: SMS message templates, phone formatting
+- **Output**: Console logging (demo implementation)
 
 ### 🔗 Webhook Consumer
 - **Topic**: `notifications.webhook`
 - **Consumer Group**: `notification-webhook`
-- **Features**: HTTP POST requests, JSON payloads
+- **Processing**: HTTP POST requests, JSON payloads
+- **Output**: Console logging (demo implementation)
 
 ### 💬 Slack Consumer
 - **Topic**: `notifications.slack`
 - **Consumer Group**: `notification-slack`
-- **Features**: Rich message blocks, channel routing
+- **Processing**: Slack message formatting, channel routing
+- **Output**: Console logging (demo implementation)
 
-## 🛠️ Running the Service
+## ⚙️ Configuration
+
+### Environment Variables
+
+Create a `config.env` file:
+
+```env
+# Kafka Configuration
+KAFKA_BOOTSTRAP_SERVERS=localhost:9094
+KAFKA_CONSUMER_GROUP_PREFIX=notification
+
+# Topic Configuration
+KAFKA_TOPIC_EMAIL=notifications.email
+KAFKA_TOPIC_SMS=notifications.sms
+KAFKA_TOPIC_WEBHOOK=notifications.webhook
+KAFKA_TOPIC_SLACK=notifications.slack
+
+# Channel Processing Delays (milliseconds)
+EMAIL_DELAY_MS=100
+SMS_DELAY_MS=150
+WEBHOOK_DELAY_MS=200
+SLACK_DELAY_MS=120
+
+# Service Configuration
+LOG_LEVEL=INFO
+SERVICE_NAME=Notification Channels Service
+```
+
+### Kafka Topics
+
+The service consumes from these topics:
+
+| Topic | Consumer Group | Purpose |
+|-------|---------------|---------|
+| `notifications.email` | `notification-email` | Email notifications |
+| `notifications.sms` | `notification-sms` | SMS notifications |
+| `notifications.webhook` | `notification-webhook` | Webhook notifications |
+| `notifications.slack` | `notification-slack` | Slack notifications |
+
+## 🚀 Running the Service
 
 ### Prerequisites
 
-1. **External Kafka**: Make sure the Kafka service from `kafka-local/` is running on `localhost:9094`
-   ```bash
-   cd kafka-local && docker-compose up -d
-   ```
-2. **Python**: Python 3.10+
-3. **Dependencies**: Install requirements
+- Kafka cluster running on `localhost:9094`
+- Docker and Docker Compose
+- Core Service running and producing notifications
 
-### Individual Consumers
+### Option 1: Docker Compose (Recommended)
 
 ```bash
+cd services/notification-channels-service
+
+# Start all consumers
+docker-compose up -d
+
+# Check status
+docker-compose ps
+
+# View logs
+docker-compose logs -f
+```
+
+### Option 2: Individual Consumers
+
+```bash
+# Install dependencies
+pip install -r requirements.txt
+
 # Run individual consumers
 python consumers/email_consumer.py
 python consumers/sms_consumer.py
@@ -75,166 +141,206 @@ python consumers/webhook_consumer.py
 python consumers/slack_consumer.py
 ```
 
-### Docker Compose (All Consumers)
+### Option 3: Background Processes
 
-**Important**: Make sure the external Kafka service is running first:
 ```bash
-# Start external Kafka service
-cd ../kafka-local && docker-compose up -d
+# Start all consumers in background
+nohup python consumers/email_consumer.py &
+nohup python consumers/sms_consumer.py &
+nohup python consumers/webhook_consumer.py &
+nohup python consumers/slack_consumer.py &
+```
 
-# Then start notification channels
-cd ../notification-channels-service
-docker-compose up --build
+## 🔧 Consumer Management
 
-# Run in background
-docker-compose up -d --build
+### Start Specific Consumer
 
-# View logs
-docker-compose logs -f
+```bash
+# Start only email consumer
+docker-compose up -d email-consumer
 
-# Stop all
+# Start email and SMS consumers
+docker-compose up -d email-consumer sms-consumer
+```
+
+### Stop Consumers
+
+```bash
+# Stop all consumers
 docker-compose down
+
+# Stop specific consumer
+docker-compose stop email-consumer
 ```
 
-### Individual Docker Containers
+### Restart Consumer
 
-**Important**: Make sure the external Kafka service is running first:
 ```bash
-# Start external Kafka service
-cd ../kafka-local && docker-compose up -d
+# Restart email consumer
+docker-compose restart email-consumer
 
-# Build image
-docker build -t notification-channels-service .
-
-# Run individual consumers
-docker run -d --name email-consumer --network host notification-channels-service python consumers/email_consumer.py
-docker run -d --name sms-consumer --network host notification-channels-service python consumers/sms_consumer.py
-docker run -d --name webhook-consumer --network host notification-channels-service python consumers/webhook_consumer.py
-docker run -d --name slack-consumer --network host notification-channels-service python consumers/slack_consumer.py
+# Restart with fresh logs
+docker-compose up -d --force-recreate email-consumer
 ```
 
-## ⚙️ Configuration
+## 📊 Monitoring
 
-### Environment Variables
+### Container Status
 
-- `KAFKA_BOOTSTRAP_SERVERS`: Kafka servers (default: `localhost:9094`)
-- `LOG_LEVEL`: Logging level (default: `INFO`)
-
-### External Kafka Dependency
-
-The notification-channels-service expects an external Kafka service to be running. This should be the Kafka instance from the `kafka-local/` folder:
-
-- **Kafka Container**: `notification-hub-kafka`
-- **External Port**: `localhost:9094`
-- **Auto Topic Creation**: Enabled (`KAFKA_AUTO_CREATE_TOPICS_ENABLE: 'true'`)
-
-**Start Kafka first:**
 ```bash
-cd ../kafka-local
-docker-compose up -d
+# Check all containers
+docker-compose ps
+
+# Check specific container logs
+docker-compose logs email-consumer
 ```
 
+### Kafka Consumer Groups
 
-## 📊 Logging
-
-Structured logging with:
-- Consumer startup/shutdown events
-- Message processing success/failure
-- Retry attempts and delays
-- Error details and stack traces
-
-## ⚙️ Configuration
-
-Simple configuration through environment variables in `config.env`:
-
-### Essential Configuration
-- `KAFKA_BOOTSTRAP_SERVERS`: Kafka broker addresses (default: localhost:9094)
-- `KAFKA_TOPIC_EMAIL`: Email topic name (default: notifications.email)
-- `KAFKA_TOPIC_SMS`: SMS topic name (default: notifications.sms)
-- `KAFKA_TOPIC_WEBHOOK`: Webhook topic name (default: notifications.webhook)
-- `KAFKA_TOPIC_SLACK`: Slack topic name (default: notifications.slack)
-
-### Channel Delays
-- `EMAIL_DELAY_MS`: Email simulation delay (default: 100ms)
-- `SMS_DELAY_MS`: SMS simulation delay (default: 150ms)
-- `WEBHOOK_DELAY_MS`: Webhook simulation delay (default: 200ms)
-- `SLACK_DELAY_MS`: Slack simulation delay (default: 120ms)
-
-**To change Kafka server:**
 ```bash
-# Edit config.env
-KAFKA_BOOTSTRAP_SERVERS=your-kafka-server:9092
-
-# Or override via environment
-export KAFKA_BOOTSTRAP_SERVERS=your-kafka-server:9092
+# Check consumer group status
+cd ../../kafka-local/scripts
+./consumer.sh notifications.email
 ```
 
-## 🔧 Architecture
+### Processing Logs
 
-### Simple & Direct Design
-- **Direct AIOKafkaConsumer usage** in each consumer
-- **Simple configuration** with environment variables
-- **Minimal abstractions** - no unnecessary base classes
-- **Clear separation** - each consumer is self-contained
+Each consumer logs:
+- Message consumption events
+- Processing status
+- Delivery confirmations
+- Error conditions
 
-### Key Components
-- **config.py**: Simple configuration constants
-- **kafka_utils.py**: Basic utility functions
-- **consumers/**: Independent consumer scripts
-- **config.env**: Environment configuration
+## 🧪 Testing
 
+### Manual Testing
 
-## 📝 Message Format
-
-### Input (from Kafka)
-
-```json
-{
-  "notification_id": "uuid",
-  "user_id": "user123",
-  "channel": "email",
-  "event_type": "order.created",
-  "data": {
-    "order_id": "order456",
-    "amount": 99.99,
-    "order_summary": "Order #order456 has been created",
-    "action_url": "/orders/order456"
-  },
-  "priority": 2,
-  "status": "pending",
-  "created_at": "2025-10-14T04:30:00Z"
-}
+```bash
+# Send test notification to email topic
+cd ../../kafka-local/scripts
+./producer.sh notifications.email '{
+    "notification_id": "test_123",
+    "user_id": "user_456",
+    "channel": "email",
+    "event_type": "order.created",
+    "data": {
+        "subject": "Test Email",
+        "body": "This is a test notification"
+    }
+}'
 ```
 
-### Channel-Specific Processing
+### Integration Testing
 
-Each channel extracts relevant data and formats it appropriately:
-
-- **Email**: Subject, HTML body, recipient email
-- **SMS**: Text message, recipient phone
-- **Webhook**: JSON payload, webhook URL
-- **Slack**: Rich blocks, channel routing
-
-## 🎯 Design Benefits
-
-1. **Independent Scaling**: Each channel can be scaled separately
-2. **Fault Isolation**: Channel failures don't affect others
-3. **Technology Flexibility**: Different channels can use different technologies
-4. **Consumer Groups**: Kafka consumer groups for load balancing
-5. **Shared Libraries**: Common utilities reduce code duplication
-6. **Docker Ready**: Easy deployment and orchestration
-
-## 🔄 Data Flow
-
-```
-Kafka Topics → Channel Consumers → Processing → Delivery
-     ↓              ↓                ↓           ↓
-notifications.  email_consumer   EmailProcessor  📧 Email
-notifications.  sms_consumer    SMSProcessor    📱 SMS  
-notifications.  webhook_consumer WebhookProcessor 🔗 Webhook
-notifications.  slack_consumer  SlackProcessor  💬 Slack
+```bash
+# Run end-to-end tests from project root
+cd tests
+python run_e2e_test.py
 ```
 
-Each consumer independently processes messages from its topic, applies channel-specific logic, and delivers notifications through the appropriate channel.
+## 🔧 Development
 
-This architecture provides **high availability**, **scalability**, and **maintainability** for notification delivery! 🚀
+### Adding New Channel
+
+1. **Create consumer file**:
+```bash
+# Copy existing consumer as template
+cp consumers/email_consumer.py consumers/new_channel_consumer.py
+```
+
+2. **Update configuration**:
+```python
+# Add to common/config.py
+KAFKA_TOPIC_NEW_CHANNEL = os.getenv('KAFKA_TOPIC_NEW_CHANNEL', 'notifications.new_channel')
+NEW_CHANNEL_DELAY_MS = int(os.getenv('NEW_CHANNEL_DELAY_MS', '100'))
+```
+
+3. **Update Docker Compose**:
+```yaml
+# Add to docker-compose.yml
+new-channel-consumer:
+  build: .
+  container_name: notification-new-channel-consumer
+  command: ["python", "consumers/new_channel_consumer.py"]
+  network_mode: host
+  env_file:
+    - config.env
+```
+
+4. **Update Core Service routing** to include new channel
+
+### Customizing Channel Logic
+
+Each consumer can be customized:
+
+```python
+async def send_notification(notification: Dict[str, Any]) -> bool:
+    """Custom notification delivery logic"""
+    try:
+        # Extract notification data
+        user_id = notification.get('user_id')
+        data = notification.get('data', {})
+        
+        # Custom processing logic
+        message = format_message(data)
+        
+        # Custom delivery mechanism
+        await deliver_to_channel(user_id, message)
+        
+        return True
+    except Exception as e:
+        print(f"❌ Delivery failed: {e}")
+        return False
+```
+
+## 🚨 Troubleshooting
+
+### Consumer Not Processing Messages
+
+```bash
+# Check consumer group offsets
+cd ../../kafka-local/scripts
+./consumer.sh notifications.email
+
+# Reset consumer group if needed
+kafka-consumer-groups --bootstrap-server localhost:9092 \
+  --group notification-email \
+  --topic notifications.email \
+  --reset-offsets --to-earliest --execute
+```
+
+### High Memory Usage
+
+```bash
+# Monitor container resources
+docker stats
+
+# Restart containers if needed
+docker-compose restart
+```
+
+### Connection Issues
+
+```bash
+# Check Kafka connectivity
+docker-compose -f ../../kafka-local/docker-compose.yml ps
+
+# Verify topic existence
+cd ../../kafka-local/scripts
+./topics.sh
+```
+
+## 🔄 Integration
+
+This service integrates with:
+- **Core Service**: Consumes notifications from topics
+- **Kafka**: Message queuing and delivery
+- **External Services**: Notification delivery endpoints (when implemented)
+
+## 🎯 Design Principles
+
+1. **Independent Consumers**: Each channel scales independently
+2. **Simple & Focused**: Minimal code, maximum clarity
+3. **Configurable**: Easy to modify behavior via environment
+4. **Observable**: Comprehensive logging for monitoring
+5. **Reliable**: Graceful error handling and recovery
